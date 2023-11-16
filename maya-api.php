@@ -9,32 +9,10 @@
 */
 
 defined( 'ABSPATH' ) or die( 'No script kiddies please!' );
+define('MAYA_API_PLUGIN', plugin_dir_path( __FILE__ ));
 
-require_once 'vendor/autoload.php';
- 
-function client() {
-    $client = new GuzzleHttp\Client();
-    $res = $client->request('GET', 'https://dummyjson.com/products/categories');
-    $dummy = $res->getBody();
+include( MAYA_API_PLUGIN . 'includes/maya-api-client.php' );
 
-    return $dummy;
+if ( is_admin() ) {
+    include( MAYA_API_PLUGIN . 'includes/maya-admin.php');
 }
-
-function maya_func( $atts ) {
-    $dummy = client()->getContents();
-    $dummy = json_decode($dummy, true);
-
-    if (empty($dummy)) {
-        return 'No data';
-    }
-
-    $content = '';
-    foreach ($dummy as $value) {
-        $content .= '<p>' . $value . '</p>';
-    }
-
-    return $content;
-}
-
-add_shortcode( "maya", "maya_func" );
-
