@@ -3,7 +3,9 @@ defined( 'ABSPATH' ) or die( 'No script kiddies please!' );
 
 require_once 'vendor/autoload.php';
 
-use Endroid\QrCode\QrCode;
+// Import necessary classes from the library
+use chillerlan\QRCode\QRCode;
+use chillerlan\QRCode\Output\QRImage;
 
 // Add the admin options page
 add_action( "admin_menu", "maya_plugin_menu_func" );
@@ -78,6 +80,15 @@ function maya_plugin_handle_api_auth() {
 // Add a submenu under the custom menu
 function maya_plugin_submenu_page() {
    add_submenu_page(
+      'maya-admin',          // Parent menu slug
+      'Register eSim',       // Page title
+      'Register eSim',       // Menu title
+      'manage_options',      // Capability required to access the submenu item
+      'maya-register-esim',  // Submenu slug
+      'maya_register_esim'   // Callback function to display the page content
+  );
+
+   add_submenu_page(
        'maya-admin',          // Parent menu slug
        'Register Plans',      // Page title
        'Register Plans',      // Menu title
@@ -86,44 +97,119 @@ function maya_plugin_submenu_page() {
        'maya_register_plans'  // Callback function to display the page content
    );
 
+  add_submenu_page(
+      'maya-admin',          // Parent menu slug
+      'eSim Details',        // Page title
+      'eSim Details',        // Menu title
+      'manage_options',      // Capability required to access the submenu item
+      'maya-esim-details',   // Submenu slug
+      'get_esim_details'     // Callback function to display the page content
+  );
+
    add_submenu_page(
       'maya-admin',          // Parent menu slug
-      'Register eSim',       // Page title
-      'Register eSim',       // Menu title
+      'Current Plans',       // Page title
+      'Current Plans',       // Menu title
       'manage_options',      // Capability required to access the submenu item
-      'maya-register-esim',  // Submenu slug
-      'maya_register_esim'   // Callback function to display the page content
-  );
+      'maya-current-plans',  // Submenu slug
+      'maya_get_current_plans'   // Callback function to display the page content
+   );
 }
 
 add_action('admin_menu', 'maya_plugin_submenu_page');
 
-function maya_register_plans() {
-   // handle here current plans
-
-   echo "<h1>Register Plans</h1>";
-
-   $user_id = get_current_user_id(); // Get the current user's ID
+function maya_get_current_plans() {
+   $user_id = isset($_POST['user_id']) ? $_POST['user_id'] : get_current_user_id(); // Get the selected user's ID or the current user's ID
    $esim = get_user_meta($user_id, 'esim_uid', true);
 
-   $user_data = get_userdata($user_id);
-   $username = $user_data->user_login;
+   // Display the select dropdown list
+   $users = get_users();
+   ?>
+   <br />
+   <form method="post">
+      <label for="user_id">Select User:</label>
+      <select name="user_id" id="user_id">
+         <?php foreach ($users as $user) { ?>
+            <option value="<?php echo $user->ID; ?>" <?php selected($user_id, $user->ID); ?>><?php echo $user->display_name; ?></option>
+         <?php } ?>
+      </select>
+      <input class="button button-primary" type="submit" value="Submit">
+   </form>
+   <?php
 
    if (!$esim) {
-      echo "<p>No eSIM registered for user <b>{$username}</b></p>";
+      echo "<p>No eSIM registered for user <b>{$user_id}</b></p>";
       return;
    }
 
+   $resp = client("GET", "esim/{$esim}/plans", null);
+
+   if (empty($resp)) {
+      echo '<p>No data</p>';
+      return;
+   }
+
+   if ($resp == false) {
+      echo "<p>No eSIM registered for user <b>{$user_id}</b></p>";
+      return;
+   }
+
+   $resp = json_decode($resp->getContents(), true);
+   if ($resp['status'] == 404) {
+      echo "<p>No eSIM registered for user <b>{$user_id}</b></p>";
+      return;
+   }
+
+   $plans = $resp['plans'];
+
+   foreach($plans as $plan) {
+      foreach($plan as $key => $value) {
+         if ($key == 'countries_enabled') {
+            $countires = null;
+            foreach ($value as $country) {
+               $countires .= $country . ', ';
+            }
+            echo "<p>{$key}: {$countires}</p>";
+         } else {
+            echo "<p>{$key}: {$value}</p>";
+         }
+      }
+      echo '<hr />';
+   }
+
+   return;
+}
+
+function maya_register_plans() {
+   $user_id = isset($_POST['user_id']) ? $_POST['user_id'] : get_current_user_id(); // Get the selected user's ID or the current user's ID
+
+   echo "<h1>Register Plans</h1>";
    // we have to handle here the form submission
-   if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['plan_type'])) {
+   if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['plan_type']) && isset($_POST['user_id'])) {
+      $esim = get_user_meta($user_id, 'esim_uid', true);
+
       $plan_id = $_POST['plan_type'];
-      $resp = client("POST", "esim/{$esim}/plan/{$plan_id}", $_POST)->getContents();
+      
+      $user_data = get_userdata($user_id);
+      $username = $user_data->user_login;
+      
+      if (!$esim) {
+         echo "<p>No eSIM registered for user <b>{$username}</b></p>";
+         return;
+      }
+
+      $resp = client("POST", "esim/{$esim}/plan/{$plan_id}", $_POST);
 
       if (empty($resp)) {
           return 'No data';
       }
 
-      $resp = json_decode($resp, true);
+      if ($resp == false) {
+         echo "<p>No eSIM registered for user <b>{$user_id}</b></p>";
+         return;
+      }
+
+      $resp = json_decode($resp->getContents(), true);
 
       echo "<p>Plan registered</p>";
       return;
@@ -133,9 +219,20 @@ function maya_register_plans() {
    $response_data = json_decode($response, true);
    $plan_types = $response_data['plan_types'];
 
+   // Display the select dropdown list
+   $users = get_users();
+
    ?>
    <form method="post">
       <input type="hidden" name="action" value="register_plan" />
+      <p>
+         <label for="user_id">Select User:</label>
+         <select name="user_id" id="user_id">
+            <?php foreach ($users as $user) { ?>
+               <option value="<?php echo $user->ID; ?>" <?php selected($user_id, $user->ID); ?>><?php echo $user->display_name; ?></option>
+            <?php } ?>
+         </select>
+      </p>
       <p>
          <label for="plan_type"><?php _e("Select Plan Type:", "maya-api"); ?></label>
          <select name="plan_type" id="plan_type">
@@ -150,32 +247,23 @@ function maya_register_plans() {
 }
 
 function maya_register_esim() {
-   $user_id = get_current_user_id(); // Get the current user's ID
-   $esim = get_user_meta($user_id, 'esim_uid', true);
-   $user_data = get_userdata($user_id);
-
-   $username = $user_data->user_login;
-
-   if ($esim) {
-      echo "<h1>Current eSIM</h1>" .
-      "<p>eSIM: {$esim}</p>".
-      "<p>TODO: in this page we should allow to create eSIM for users</p>";
-      get_esim_details();
-      return;
-   } else {
-      echo "<p>No eSIM registered for user <b>{$username}</b></p>";
-   }
-
    if ($_SERVER["REQUEST_METHOD"] == "POST") {
       $region = $_POST['region'];
       $tag = $_POST['tag'];
-      $resp = client("POST", "esim", ['region' => $region, 'tag' => $tag])->getContents();
+      $user_id = $_POST['user_id'];
+
+      $resp = client("POST", "esim", ['region' => $region, 'tag' => $tag]);
 
       if (empty($resp)) {
-          return 'No data';
+         return 'No data';
       }
 
-      $resp = json_decode($resp, true);
+      if ($resp == false) {
+         echo "<p>No eSIM registered for user <b>{$user_id}</b></p>";
+         return;
+      }
+
+      $resp = json_decode($resp->getContents(), true);
       $esim = $resp['esim']['iccid'];
 
       echo "<h1>New eSIM created:</h1>" .
@@ -183,6 +271,9 @@ function maya_register_esim() {
       update_user_meta($user_id, 'esim_uid', $esim);
       return;
   } else {
+   // Display the select dropdown list
+   $users = get_users();
+   $user_id = get_current_user_id(); // Get the current user's ID
    ?>
       <br>
       <h3>Register new eSIM</h3>
@@ -194,6 +285,14 @@ function maya_register_esim() {
          <p>
             <label><?php _e("Tag:", "maya-api"); ?></label>
             <input class="" type="text" name="tag">
+         </p>
+         <p>
+            <label for="user_id">Select User:</label>
+            <select name="user_id" id="user_id">
+               <?php foreach ($users as $user) { ?>
+                  <option value="<?php echo $user->ID; ?>" <?php selected($user_id, $user->ID); ?>><?php echo $user->display_name; ?></option>
+               <?php } ?>
+            </select>
          </p>
          <input class="button button-primary" type="submit" value="<?php _e("Submit", "maya-api"); ?>">
       </form>
@@ -209,50 +308,53 @@ function add_custom_user_profile_fields($contactmethods) {
 add_filter('user_contactmethods', 'add_custom_user_profile_fields');
 
 function get_esim_details() {
-   $user_id = get_current_user_id(); // Get the current user's ID
+   $user_id = isset($_POST['user_id']) ? $_POST['user_id'] : get_current_user_id(); // Get the selected user's ID or the current user's ID
    $esim = get_user_meta($user_id, 'esim_uid', true);
 
+   // Display the select dropdown list
+   $users = get_users();
+   ?>
+   <br />
+   <form method="post">
+      <label for="user_id">Select User:</label>
+      <select name="user_id" id="user_id">
+         <?php foreach ($users as $user) { ?>
+            <option value="<?php echo $user->ID; ?>" <?php selected($user_id, $user->ID); ?>><?php echo $user->display_name; ?></option>
+         <?php } ?>
+      </select>
+      <input class="button button-primary" type="submit" value="Submit">
+   </form>
+   <?php
+
    if (!$esim) {
+      echo "<p>No eSIM registered for user <b>{$user_id}</b></p>";
       return;
    }
 
-   $resp = client("GET", "esim/{$esim}", null)->getContents();
+   $resp = client("GET", "esim/{$esim}", null);
 
    if (empty($resp)) {
-       return 'No data';
+      return 'No data';
    }
 
-   $resp = json_decode($resp, true);
+   if ($resp == false) {
+      echo "<p>No eSIM registered for user <b>{$user_id}</b></p>";
+      return;
+   }
+
+   $resp = json_decode($resp->getContents(), true);
+   if ($resp['status'] == 404) {
+      echo "<p>No eSIM registered for user <b>{$user_id}</b></p>";
+      return;
+   }
+
    $esim = $resp['esim'];
 
    foreach($esim as $key => $value) {
       echo "<p>{$key}: {$value}</p>";
    }
 
-   return;
-}
-
-add_action('user_register', 'maya_register_user_esim');
-function maya_register_user_esim($user_id) {
-   $esim = get_user_meta($user_id, 'esim_uid', true);
-   $user_data = get_userdata($user_id);
-
-   $username = $user_data->user_login;
-
-   if ($esim) {
-      return;
-   }
-
-   $resp = client("POST", "esim", ['region' => 'europe', 'tag' => $username])->getContents();
-
-   if (empty($resp)) {
-       return 'No data';
-   }
-
-   $resp = json_decode($resp, true);
-   $esim = $resp['esim']['iccid'];
-
-   update_user_meta($user_id, 'esim_uid', $esim);
+   echo '<img src="'.(new QRCode)->render($esim['activation_code']).'" alt="QR Code" />';
 
    return;
 }
