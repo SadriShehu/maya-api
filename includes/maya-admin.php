@@ -39,22 +39,17 @@ function maya_plugin_options() {
    }
    ?>
    <form method="post" action="<?php echo admin_url( 'admin-post.php'); ?>">
-
       <input type="hidden" name="action" value="handle_api_auth" />
-
       <h3><?php _e("Add new Maya API Info", "maya-api"); ?></h3>
       <p>
-      <label><?php _e("Maya Key:", "maya-api"); ?></label>
-      <input class="" type="text" name="client_id" value="<?php echo get_option('client_id'); ?>" />
+         <label><?php _e("Maya Key:", "maya-api"); ?></label>
+         <input class="" type="text" name="client_id" value="<?php echo get_option('client_id'); ?>" />
       </p>
-
       <p>
-      <label><?php _e("Maya Secret:", "maya-api"); ?></label>
-      <input class="" type="password" name="client_secret" value="<?php echo get_option('client_secret'); ?>" />
+         <label><?php _e("Maya Secret:", "maya-api"); ?></label>
+         <input class="" type="password" name="client_secret" value="<?php echo get_option('client_secret'); ?>" />
       </p>
-
       <input class="button button-primary" type="submit" value="<?php _e("Save", "maya-api"); ?>" />
-
    </form>
    <?php
 }
@@ -118,6 +113,13 @@ function maya_plugin_submenu_page() {
 
 add_action('admin_menu', 'maya_plugin_submenu_page');
 
+function maya_admin_styles($hook) {
+    // Register and enqueue the style
+    wp_register_style('maya_admin_css', plugin_dir_url(__FILE__) . 'css/styles.css', false, '1.0.0');
+    wp_enqueue_style('maya_admin_css');
+}
+add_action('admin_enqueue_scripts', 'maya_admin_styles');
+
 function maya_get_current_plans() {
    $user_id = isset($_POST['user_id']) ? $_POST['user_id'] : get_current_user_id(); // Get the selected user's ID or the current user's ID
    $esim = get_user_meta($user_id, 'esim_uid', true);
@@ -126,53 +128,17 @@ function maya_get_current_plans() {
    $users = get_users();
    ?>
    <br />
-   <style>
-         .maya-form {
-            width: 100%;
-            max-width: 600px;
-            margin: 0 auto;
-            padding: 20px;
-            background-color: #f8f8f8;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-         }
-         .maya-form p {
-            margin-bottom: 15px;
-         }
-         .maya-form label {
-            display: block;
-            margin-bottom: 5px;
-         }
-         .maya-form input[type="text"],
-         .maya-form select {
-            width: 100%;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 3px;
-         }
-         .maya-form input[type="submit"] {
-            background-color: #0073aa;
-            border-color: #0073aa;
-            color: #fff;
-            padding: 10px 20px;
-            cursor: pointer;
-         }
-         .maya-form input[type="submit"]:hover {
-            background-color: #006799;
-            border-color: #006799;
-         }
-      </style>
-      <div class="maya-form">
-   <form method="post">
-      <label for="user_id">Select User:</label>
-      <select name="user_id" id="user_id">
-         <?php foreach ($users as $user) { ?>
-            <option value="<?php echo $user->ID; ?>" <?php selected($user_id, $user->ID); ?>><?php echo $user->display_name; ?></option>
-         <?php } ?>
-      </select>
-      <input class="button button-primary" type="submit" value="Submit">
-   </form>
-         </div>
+   <div class="maya-form">
+      <form method="post">
+         <label for="user_id">Select User:</label>
+         <select name="user_id" id="user_id">
+            <?php foreach ($users as $user) { ?>
+               <option value="<?php echo $user->ID; ?>" <?php selected($user_id, $user->ID); ?>><?php echo $user->display_name; ?></option>
+            <?php } ?>
+         </select>
+         <input class="button button-primary" type="submit" value="Submit">
+      </form>
+   </div>
    <?php
 
    if (!$esim) {
@@ -201,28 +167,6 @@ function maya_get_current_plans() {
    $plans = $resp['plans'];
 
    ?>
-   <style>
-      .maya-output {
-         width: 100%;
-         max-width: 600px;
-         margin: 0 auto;
-         padding: 20px;
-         background-color: #f8f8f8;
-         border: 1px solid #ddd;
-         border-radius: 5px;
-         font-size: 16px;
-         color: #333;
-      }
-      .maya-output p {
-         margin-bottom: 15px;
-      }
-      .maya-output hr {
-         border: 0;
-         border-top: 1px solid #ddd;
-         margin: 20px 0;
-      }
-   </style>
-
    <div class="maya-output">
       <?php
       foreach($plans as $plan) {
@@ -288,42 +232,6 @@ function maya_register_plans() {
    $users = get_users();
 
    ?>
-   <style>
-         .maya-form {
-            width: 100%;
-            max-width: 600px;
-            margin: 0 auto;
-            padding: 20px;
-            background-color: #f8f8f8;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-         }
-         .maya-form p {
-            margin-bottom: 15px;
-         }
-         .maya-form label {
-            display: block;
-            margin-bottom: 5px;
-         }
-         .maya-form input[type="text"],
-         .maya-form select {
-            width: 100%;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 3px;
-         }
-         .maya-form input[type="submit"] {
-            background-color: #0073aa;
-            border-color: #0073aa;
-            color: #fff;
-            padding: 10px 20px;
-            cursor: pointer;
-         }
-         .maya-form input[type="submit"]:hover {
-            background-color: #006799;
-            border-color: #006799;
-         }
-      </style>
       <div class="maya-form">
       <h1>Register Plans</h1>
    <form method="post">
@@ -380,42 +288,6 @@ function maya_register_esim() {
    $user_id = get_current_user_id(); // Get the current user's ID
    ?>
       <br>
-      <style>
-         .maya-form {
-            width: 100%;
-            max-width: 600px;
-            margin: 0 auto;
-            padding: 20px;
-            background-color: #f8f8f8;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-         }
-         .maya-form p {
-            margin-bottom: 15px;
-         }
-         .maya-form label {
-            display: block;
-            margin-bottom: 5px;
-         }
-         .maya-form input[type="text"],
-         .maya-form select {
-            width: 100%;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 3px;
-         }
-         .maya-form input[type="submit"] {
-            background-color: #0073aa;
-            border-color: #0073aa;
-            color: #fff;
-            padding: 10px 20px;
-            cursor: pointer;
-         }
-         .maya-form input[type="submit"]:hover {
-            background-color: #006799;
-            border-color: #006799;
-         }
-      </style>
       <div class="maya-form">
          <h3>Register new eSIM</h3>
          <form method="post">
@@ -456,81 +328,6 @@ function get_esim_details() {
    // Display the select dropdown list
    $users = get_users();
    ?>
-      <style>
-    .maya-container {
-        display: flex;
-        justify-content: space-between;
-    }
-    .maya-output, .maya-form {
-        width: 48%;
-        padding: 20px;
-        background-color: #f8f8f8;
-        border: 1px solid #ddd;
-        border-radius: 5px;
-    }
-    .maya-select {
-        width: 95%;
-        padding: 20px;
-        background-color: #f8f8f8;
-        border: 1px solid #ddd;
-        border-radius: 5px;
-        margin-left: 10px;
-    }
-    /* Other styles remain the same */
-    .maya-output {
-         width: 100%;
-         max-width: 600px;
-         margin: 0 auto;
-         padding: 20px;
-         background-color: #f8f8f8;
-         border: 1px solid #ddd;
-         border-radius: 5px;
-      }
-      .maya-output p {
-         margin-bottom: 15px;
-         font-size: 16px;
-         color: #333;
-      }
-      .maya-output img {
-         max-width: 100%;
-         height: auto;
-      }
-
-      .maya-form {
-            width: 100%;
-            max-width: 600px;
-            margin: 0 auto;
-            padding: 20px;
-            background-color: #f8f8f8;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-         }
-         .maya-form p {
-            margin-bottom: 15px;
-         }
-         .maya-form label {
-            display: block;
-            margin-bottom: 5px;
-         }
-         .maya-form input[type="text"],
-         .maya-form textarea {
-            width: 100%;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 3px;
-         }
-         .maya-form input[type="submit"] {
-            background-color: #0073aa;
-            border-color: #0073aa;
-            color: #fff;
-            padding: 10px 20px;
-            cursor: pointer;
-         }
-         .maya-form input[type="submit"]:hover {
-            background-color: #006799;
-            border-color: #006799;
-         }
-   </style>
    <br />
    <div class="maya-select">
       <h2>eSim Details</h2>
@@ -593,8 +390,15 @@ function get_esim_details() {
                   <input type="text" name="subject" id="subject" value="Mirěsevini në Kude eSim!" required>
             </p>
             <p>
-                  <label for="message">Message:</label>
-                  <textarea rows='10' name="message" id="message" required><?php echo 'Skano QR code për të aktivizuar eSim ne telefonin tuaj: <img src="'.(new QRCode)->render($esim['activation_code']).'" />' ?></textarea>
+                  <label for="message_header">Message (appended to top):</label>
+                  <textarea rows='5' name="message_header" id="message_header"></textarea>
+            </p>
+            <p>
+            <?php echo '<p>Skano QR code për të aktivizuar eSim ne telefonin tuaj:</p><p><img src="'.(new QRCode)->render($esim['activation_code']).'" /></p>' ?>
+            </p>
+            <p>
+                  <label for="message_footer">Message (appended to bottom):</label>
+                  <textarea rows='5' name="message_footer" id="message_footer"></textarea>
             </p>
             <input class="button button-primary" type="submit" name="send_email" value="Send Email">
          </form>
@@ -606,8 +410,16 @@ function get_esim_details() {
    if (isset($_POST['send_email'])) {
       $to = $_POST['email'];
       $subject = $_POST['subject'];
-      $message = $_POST['message'];
-      $headers = array('Content-Type: text/html; charset=UTF-8;base64', 'From: Kudo eSim <no-reply@kudoesim.com>');
+      $message = "";
+      if (isset($_POST['message_header'])) {
+         $message = '<p>' . $_POST['message_header'] . '</p>';
+      }
+      $message .= "<p>Skano QR code për të aktivizuar eSim ne telefonin tuaj:</p>" .
+      "<p><img src='" . (new QRCode)->render($esim['activation_code']) . "' /></p>";
+      if (isset($_POST['message_footer'])) {
+         $message .= '<p>' . $_POST['message_footer'] . '</p>';
+      }
+      $headers = array('Content-Type: text/html; charset=UTF-8;', 'Content-Transfer-Encoding: base64', 'From: Kudo eSim <no-reply@kudoesim.com>');
       if (wp_mail($to, $subject, $message, $headers)) {
          echo 'Email sent successfully!';
       } else {
